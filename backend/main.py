@@ -9,6 +9,8 @@ from functools import lru_cache
 import logging
 from sqlalchemy.orm import Session
 import uuid
+import traceback
+import numpy as np
 
 from services.storage import StorageService
 from services.processor import ImageProcessor
@@ -201,8 +203,10 @@ async def recommend_outfit(
             )
             
         # Get wardrobe data from database
+        logger.info(f"Getting wardrobe data for user {user_id}")
         repository = ImageMetadataRepository(db)
         wardrobe = repository.get_wardrobe(user_id)
+        logger.info(f"Retrieved {len(wardrobe)} items from wardrobe")
         
         # Check if wardrobe is empty
         if not wardrobe:
@@ -226,6 +230,7 @@ async def recommend_outfit(
             ]
         
         # Get recommendations
+        logger.info("Getting recommendations")
         recommendations = outfit_recommender.recommend_outfits(
             user_id=user_id,
             weather=weather,
@@ -233,14 +238,32 @@ async def recommend_outfit(
             db_session=db,
             wardrobe=wardrobe
         )
+        logger.info(f"Generated {len(recommendations)} recommendations")
         
-        return recommendations
+        # Convert numpy types to Python types
+        processed_recommendations = []
+        for rec in recommendations:
+            processed_rec = {
+                "id": int(rec["id"]) if isinstance(rec["id"], (np.int64, np.int32)) else rec["id"],
+                "clothing_type": rec["clothing_type"],
+                "image_url": rec["image_url"],
+                "dominant_color": rec["dominant_color"],
+                "tags": rec["tags"],
+                "similarity_score": float(rec["similarity_score"])
+            }
+            processed_recommendations.append(processed_rec)
+        
+        return processed_recommendations
     
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting recommendations: {e}")
-        raise HTTPException(status_code=500, detail=f"Error getting recommendations: {str(e)}")
+        logger.error(f"Error getting recommendations: {str(e)}")
+        logger.error(f"Full error traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error getting recommendations: {str(e)}"
+        )
 
 @app.get("/wardrobe/{user_id}")
 async def get_wardrobe(

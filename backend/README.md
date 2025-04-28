@@ -20,6 +20,58 @@ This backend system handles image processing, storage, and outfit recommendation
 2. PostgreSQL
 3. Firebase project with Storage enabled
 
+### PostgreSQL Setup
+
+You can set up PostgreSQL in two ways:
+
+#### Option 1: Automated Setup (Recommended)
+1. Run the setup script:
+   ```powershell
+   .\scripts\setup_postgres.ps1
+   ```
+   This will:
+   - Start the PostgreSQL server if it's not running
+   - Create the database and user
+   - Display the credentials to use in your .env file
+
+#### Option 2: Manual Setup
+1. **Install PostgreSQL**:
+   - Windows: Download and install from [PostgreSQL official website](https://www.postgresql.org/download/windows/)
+   - Linux: `sudo apt-get install postgresql postgresql-contrib`
+   - macOS: `brew install postgresql`
+
+2. **Start PostgreSQL Service**:
+   - Windows: PostgreSQL service should start automatically after installation
+   - Linux: `sudo service postgresql start`
+   - macOS: `brew services start postgresql`
+
+3. **Create Database and User**:
+   ```sql
+   -- Connect to PostgreSQL
+   psql -U postgres
+
+   -- Create database
+   CREATE DATABASE wardrobe;
+
+   -- Create user (replace 'your_password' with a secure password)
+   CREATE USER your_postgres_user WITH PASSWORD 'your_password';
+
+   -- Grant privileges
+   GRANT ALL PRIVILEGES ON DATABASE wardrobe TO your_postgres_user;
+   ```
+
+4. **Verify Installation**:
+   ```bash
+   # Test connection
+   psql -U your_postgres_user -d wardrobe -h localhost
+   ```
+
+5. **Troubleshooting**:
+   - If you get a connection error, check if PostgreSQL is running
+   - For Windows, check services.msc to ensure PostgreSQL service is running
+   - For Linux/macOS, check service status with `sudo service postgresql status` or `brew services list`
+   - If you can't connect, check pg_hba.conf for authentication settings
+
 ### Installation
 
 1. Install dependencies:

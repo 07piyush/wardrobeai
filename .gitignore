@@ -1,55 +1,104 @@
 # Firebase credentials
-firebase-credentials.json
+backend/tests/firebase-credentials.json
 
 # Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
-*.pyc
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Virtual environments
+# Virtual Environment
 venv/
-env/
 ENV/
-.venv/
-.ENV/
+env/
+.env
 
-# Test and coverage
-.pytest_cache/
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
 .coverage
 htmlcov/
+.pytest_cache/
 .tox/
-.noseids
+.nox/
 
-# Database files
-*.db
+# Database
 *.sqlite3
-*.sqlite
+*.db
+*.sql
+*.dump
+*.backup
+*.bak
+*.pgdata/
+postgresql/
+pgdata/
+data/
+*.pid
+*.lock
+postmaster.pid
+postmaster.opts
 
-# Editor and OS files
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-.cursor/
-
-# Node/npm (if any frontend is added later)
-node_modules/
-
-# Compiled files
-*.so
-
-# Environment variables
-.env
-.env.local
-.env.*.local
+# PostgreSQL specific
+pg_log/
+pg_stat_tmp/
+pg_replslot/
+pg_tblspc/
+pg_twophase/
+pg_wal/
+pg_xact/
+postgresql.conf
+pg_hba.conf
+pg_ident.conf
+recovery.conf
+standby.signal
+recovery.signal
 
 # Logs
 *.log
 logs/
+log/
+
+# OS
+.DS_Store
+Thumbs.db
+*.bak
+*.tmp
+*.temp
 
 # Distribution / packaging
-dist/
+.Python
+env/
 build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
 *.egg-info/
+.installed.cfg
+*.egg

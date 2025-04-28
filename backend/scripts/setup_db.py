@@ -14,7 +14,10 @@ from dotenv import load_dotenv
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Import all model classes that define tables
 from models.database import Base, PostgresConfig
+from models.image_metadata import ImageMetadata
+from models.repository import SQLAlchemyRepository
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -49,7 +52,7 @@ def setup_database():
         return True
         
     except Exception as e:
-        logger.error(f"Error setting up database: {e}")
+        logger.error(f"Error setting up database: {str(e)}")
         return False
 
 if __name__ == "__main__":

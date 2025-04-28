@@ -1,4 +1,4 @@
-# StyleDNA AI - Wardrobe POC
+# Wardrobe AI : 
 
 An AI-powered fashion image processor and outfit recommender system that helps users manage their wardrobe and get personalized outfit recommendations.
 
@@ -149,8 +149,9 @@ Query Parameters:
 
 ### Prerequisites
 1. Python 3.13.3
-2. Firebase project
-3. Firebase credentials
+2. PostgreSQL 17.4
+3. Firebase project
+4. Firebase credentials
 
 ### Installation
 
@@ -159,11 +160,37 @@ Query Parameters:
 pip install -r requirements.txt
 ```
 
-2. **Configure Firebase**:
+2. **Configure PostgreSQL**:
+- Install PostgreSQL 17.4
+- Create a database and user:
+```sql
+CREATE USER wardrobe_user WITH PASSWORD 'wardrobe_password';
+CREATE DATABASE wardrobe;
+GRANT ALL PRIVILEGES ON DATABASE wardrobe TO wardrobe_user;
+```
+- Create a `.env` file in the project root with:
+```env
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=wardrobe_user
+POSTGRES_PASSWORD=wardrobe_password
+POSTGRES_DB=wardrobe
+```
+
+3. **Configure Firebase**:
 - Place `firebase-credentials.json` in `backend/tests/`
 - Ensure Firebase Storage is enabled
 
-3. **Start the Server**:
+4. **Start PostgreSQL Server**:
+```bash
+# On Windows
+Start-Process -FilePath "path/to/pg_ctl.exe" -ArgumentList "start -D path/to/data" -NoNewWindow
+
+# On Linux/macOS
+pg_ctl start -D /path/to/data
+```
+
+5. **Start the Application Server**:
 ```bash
 cd backend
 python main.py
@@ -178,7 +205,13 @@ cd backend
 pytest tests/test_integration.py -v
 ```
 
-2. **Run Specific Test**:
+2. **Run Recommender Tests**:
+```bash
+cd backend
+python test_recommender.py
+```
+
+3. **Run Specific Test**:
 ```bash
 pytest tests/test_integration.py::test_upload_and_process_image -v
 ```
@@ -194,6 +227,11 @@ curl -X POST http://localhost:8000/upload-image \
 2. **Recommendation Testing**:
 ```bash
 curl "http://localhost:8000/recommend?weather=sunny&event_type=casual"
+```
+
+3. **Wardrobe Testing**:
+```bash
+curl "http://localhost:8000/wardrobe/test_user"
 ```
 
 ## Error Handling
