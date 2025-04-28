@@ -1,3 +1,4 @@
+import argparse
 import requests
 import os
 import logging
@@ -5,10 +6,10 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def test_upload():
+def test_upload(image_path):
     try:
-        # Get the absolute path to the image
-        image_path = os.path.abspath('D:/Developent/wardrobe/whitePant.png')
+        # Resolve and log the absolute path
+        image_path = os.path.abspath(image_path)
         logger.info(f"Attempting to upload image from: {image_path}")
         
         # Check if file exists
@@ -18,7 +19,7 @@ def test_upload():
             
         with open(image_path, 'rb') as f:
             files = {
-                'file': ('whitePant.png', f, 'image/png')
+                'file': (os.path.basename(image_path), f, 'image/png')
             }
             logger.info("Sending POST request to /upload-image")
             response = requests.post('http://localhost:8000/upload-image', files=files)
@@ -34,4 +35,16 @@ def test_upload():
         logger.error(f"Error during upload: {str(e)}")
 
 if __name__ == "__main__":
-    test_upload() 
+    # 1. Set up argument parsing
+    parser = argparse.ArgumentParser(
+        description="Upload an image to the server"
+    )
+    parser.add_argument(
+        "-i", "--image",
+        required=True,
+        help="Path to the image file to upload"
+    )
+    args = parser.parse_args()  # parses sys.argv :contentReference[oaicite:2]{index=2}
+
+    # 2. Call the upload function with the user-provided path
+    test_upload(args.image)

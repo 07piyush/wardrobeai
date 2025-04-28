@@ -1,20 +1,30 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from typing import List, Dict
+from typing import List, Dict, Optional
 import tempfile
 from PIL import Image
 import os
 from functools import lru_cache
 import logging
+from sqlalchemy.orm import Session
+import uuid
 
 from services.storage import StorageService
 from services.processor import ImageProcessor
 from services.recommender import OutfitRecommender
+from models.database import DatabaseManager, PostgresConfig
+from models.image_repository import ImageMetadataRepository
+from models.image_metadata import ImageMetadata
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Initialize database
+db_config = PostgresConfig()
+db_manager = DatabaseManager.get_instance(db_config)
+db_manager.create_tables()
 
 app = FastAPI(
     title="StyleDNA AI",
@@ -30,6 +40,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Dependency to get database session
+def get_db():
+    """Get database session"""
+    db = db_manager.SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 @lru_cache()
 def get_storage_service():
@@ -66,14 +85,20 @@ async def root():
 @app.post("/upload-image")
 async def upload_image(
     file: UploadFile = File(...),
-    storage_service: StorageService = Depends(get_storage_service)
+    user_id: str = Query("test_user", description="User ID"),
+    storage_service: StorageService = Depends(get_storage_service),
+    image_processor: ImageProcessor = Depends(get_image_processor),
+    db: Session = Depends(get_db)
 ):
     """
     Upload and process a clothing image
     
     Args:
         file: The image file to upload
+        user_id: User identifier for organizing files
         storage_service: Injected storage service
+        image_processor: Injected image processor
+        db: Database session
         
     Returns:
         dict: Upload results including image URL and metadata
@@ -93,8 +118,9 @@ async def upload_image(
                 detail="Invalid content type. Only image files are supported"
             )
             
-        # Create temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file.filename.split('.')[-1]}") as temp_file:
+        # Create temporary file with a unique name
+        filename = f"{uuid.uuid4()}_{file.filename}"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{filename.split('.')[-1]}") as temp_file:
             content = await file.read()
             temp_file.write(content)
             temp_path = temp_file.name
@@ -108,15 +134,24 @@ async def upload_image(
                 img.save(temp_path, quality=85, optimize=True)
             
             # Upload to Firebase Storage
-            image_url = storage_service.upload_file(temp_path, "test_user")
+            image_url = storage_service.upload_file(temp_path, user_id)
             if not image_url:
                 raise HTTPException(status_code=500, detail="Failed to upload image to storage")
+            
+            # Process image and store metadata
+            metadata = image_processor.process_image(
+                image_path=temp_path,
+                image_url=image_url,
+                user_id=user_id,
+                db_session=db
+            )
             
             return {
                 "message": "Image uploaded and processed successfully",
                 "temp_path": temp_path,
                 "filename": file.filename,
-                "image_url": image_url
+                "image_url": image_url,
+                "metadata": metadata
             }
         finally:
             # Clean up temp file
@@ -133,9 +168,11 @@ async def upload_image(
 
 @app.get("/recommend")
 async def recommend_outfit(
-    weather: str = None,
-    event_type: str = None,
-    outfit_recommender: OutfitRecommender = Depends(get_outfit_recommender)
+    weather: str = Query(None, description="Current weather condition"),
+    event_type: str = Query(None, description="Type of event/occasion"),
+    user_id: str = Query("test_user", description="User ID"),
+    outfit_recommender: OutfitRecommender = Depends(get_outfit_recommender),
+    db: Session = Depends(get_db)
 ) -> List[Dict]:
     """
     Get outfit recommendations based on weather and event type
@@ -143,7 +180,9 @@ async def recommend_outfit(
     Args:
         weather: Current weather condition
         event_type: Type of event/occasion
+        user_id: User identifier
         outfit_recommender: Injected recommendation service
+        db: Database session
         
     Returns:
         List[Dict]: List of recommended outfits
@@ -161,27 +200,38 @@ async def recommend_outfit(
                 detail=f"Missing required parameters: {', '.join(missing_params)}"
             )
             
-        # Mock wardrobe data for testing
-        wardrobe = [
-            {
-                "clothing_type": "shirt",
-                "image_url": "https://example.com/shirt.jpg",
-                "dominant_color": {"r": 255, "g": 0, "b": 0},
-                "tags": ["red", "casual", "cotton"]
-            },
-            {
-                "clothing_type": "pants",
-                "image_url": "https://example.com/pants.jpg",
-                "dominant_color": {"r": 0, "g": 0, "b": 255},
-                "tags": ["blue", "formal", "denim"]
-            }
-        ]
+        # Get wardrobe data from database
+        repository = ImageMetadataRepository(db)
+        wardrobe = repository.get_wardrobe(user_id)
+        
+        # Check if wardrobe is empty
+        if not wardrobe:
+            # For demonstration purposes, use a mock wardrobe
+            logger.warning(f"No wardrobe found for user {user_id}, using mock data")
+            wardrobe = [
+                {
+                    "id": 1,
+                    "clothing_type": "shirt",
+                    "image_url": "https://example.com/shirt.jpg",
+                    "dominant_color": {"r": 255, "g": 0, "b": 0},
+                    "tags": ["red", "casual", "cotton"]
+                },
+                {
+                    "id": 2,
+                    "clothing_type": "pants",
+                    "image_url": "https://example.com/pants.jpg",
+                    "dominant_color": {"r": 0, "g": 0, "b": 255},
+                    "tags": ["blue", "formal", "denim"]
+                }
+            ]
         
         # Get recommendations
         recommendations = outfit_recommender.recommend_outfits(
-            wardrobe=wardrobe,
+            user_id=user_id,
             weather=weather,
-            event_type=event_type
+            event_type=event_type,
+            db_session=db,
+            wardrobe=wardrobe
         )
         
         return recommendations
@@ -191,6 +241,30 @@ async def recommend_outfit(
     except Exception as e:
         logger.error(f"Error getting recommendations: {e}")
         raise HTTPException(status_code=500, detail=f"Error getting recommendations: {str(e)}")
+
+@app.get("/wardrobe/{user_id}")
+async def get_wardrobe(
+    user_id: str,
+    db: Session = Depends(get_db)
+) -> List[Dict]:
+    """
+    Get all clothing items for a user
+    
+    Args:
+        user_id: User identifier
+        db: Database session
+        
+    Returns:
+        List[Dict]: List of clothing items
+    """
+    try:
+        repository = ImageMetadataRepository(db)
+        wardrobe = repository.get_wardrobe(user_id)
+        return wardrobe
+    
+    except Exception as e:
+        logger.error(f"Error getting wardrobe: {e}")
+        raise HTTPException(status_code=500, detail=f"Error getting wardrobe: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True) 
